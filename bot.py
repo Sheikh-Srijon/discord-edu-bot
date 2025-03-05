@@ -64,6 +64,7 @@ async def call_perplexity_api(question):
                     "role": "system",
                     "content": (
                         "You are a helpful and empathetic college application counselor. "
+                        "Do not answer questions that are not related to college applications, or student life or emotional support to students."
                         "Be data-driven and reference sources with numbers [1], [2], etc. "
                         "Focus on strategic approaches and insider tips for college applications. "
                         "Keep responses structured and concise. "
@@ -132,6 +133,87 @@ async def on_ready():
     except Exception as e:
         print(f"Failed to sync commands: {e}")
 
+@client.event
+async def on_message(message):
+    # Don't respond to messages from the bot itself
+    if message.author == client.user:
+        return
+
+    # Check if this is a direct message
+    if isinstance(message.channel, discord.DMChannel):
+        # Handle direct messages - process any message as a question
+        question = message.content.strip()
+        if question:
+            await process_counselor_question(
+                question=question,
+                user_mention=message.author.mention,
+                channel=message.channel,
+                guild=None,
+                is_thread=False
+            )
+    else:
+        # Handle message-based command in servers
+        prefix = "!counselor"
+        if message.content.startswith(prefix):
+            question = message.content[len(prefix):].strip()
+            if question:
+                is_thread = isinstance(message.channel, discord.Thread)
+                await process_counselor_question(
+                    question=question,
+                    user_mention=message.author.mention,
+                    channel=message.channel,
+                    guild=message.guild,
+                    is_thread=is_thread
+                )
+
+# Core business logic function
+async def process_counselor_question(question, user_mention, channel, guild, is_thread=False):
+    try:
+        # Get AI response
+        response = await get_ai_response(question)
+        
+        # Format detailed response
+        detailed_response = f"{user_mention} Here's your answer to question: **{question}**\n\n{response}"
+        
+        # Split into chunks
+        chunks = await split_long_message(detailed_response)
+        
+        # Send first chunk as a new message
+        first_message = await channel.send(chunks[0])
+        
+        # Check if we have more chunks to send
+        if len(chunks) > 1:
+            # If already in a thread, send remaining chunks directly
+            if is_thread:
+                for chunk in chunks[1:]:
+                    await channel.send(chunk)
+            # If in a guild channel, create a thread
+            elif guild:
+                try:
+                    thread = await channel.create_thread(
+                        name=f"Answer: {question[:50]}..." if len(question) > 50 else f"Answer: {question}",
+                        message=first_message,
+                        auto_archive_duration=60  # Archive after 1 hour
+                    )
+                    
+                    # Send remaining chunks in thread
+                    for chunk in chunks[1:]:
+                        await thread.send(chunk)
+                        
+                except Exception as thread_error:
+                    print(f"Could not create thread: {str(thread_error)}")
+                    for chunk in chunks[1:]:
+                        await channel.send(chunk)
+            else:
+                # If not in a guild, send remaining chunks as regular messages
+                for chunk in chunks[1:]:
+                    await channel.send(chunk)
+        
+        return True
+    except Exception as e:
+        print(f"Error processing counselor question: {str(e)}")
+        return False
+
 async def split_long_message(message, first_chunk_size=500, subsequent_chunk_size=1900):
     """Split a long message into chunks with specified sizes for the first and subsequent chunks."""
     if len(message) <= first_chunk_size:
@@ -168,63 +250,6 @@ async def split_long_message(message, first_chunk_size=500, subsequent_chunk_siz
         chunks.append(current_chunk)
     
     return chunks
-
-@client.tree.command(name="counselor", description="Ask a question to the academic counselor")
-async def counselor(interaction: discord.Interaction, question: str):
-    try:
-        # Defer the response since AI might take time
-        await interaction.response.defer(ephemeral=False)
-        
-        # Get AI response
-        response = await get_ai_response(question)
-        
-        # Format initial response with user mention
-        initial_response = f"{interaction.user.mention} Here's your answer to question: {question}\n\n{response}"
-        
-        # Split into chunks
-        chunks = await split_long_message(initial_response)
-        
-        # Send first chunk (500 characters)
-        first_message = await interaction.followup.send(chunks[0])
-        
-        # Check if we have more chunks to send
-        if len(chunks) > 1:
-            # If in a thread, send remaining chunks directly
-            if isinstance(interaction.channel, discord.Thread):
-                for chunk in chunks[1:]:
-                    await interaction.channel.send(chunk)
-            # If in a guild channel, create a thread
-            elif interaction.guild:
-                try:
-                    thread = await interaction.channel.create_thread(
-                        name=f"Answer: {question[:50]}..." if len(question) > 50 else f"Answer: {question}",
-                        message=first_message,
-                        auto_archive_duration=60  # Archive after 1 hour
-                    )
-                    
-                    # Send remaining chunks in thread
-                    for chunk in chunks[1:]:
-                        await thread.send(chunk)
-                        
-                except Exception as thread_error:
-                    # Log the error for debugging
-                    print(f"Could not create thread: {str(thread_error)}")
-                    
-                    # Send remaining chunks as regular messages in the same channel
-                    for chunk in chunks[1:]:
-                        await interaction.followup.send(chunk)
-            else:
-                # If not in a guild, send remaining chunks as regular messages
-                for chunk in chunks[1:]:
-                    await interaction.followup.send(chunk)
-                
-    except Exception as e:
-        print(f"Error in counselor command: {str(e)}")
-        error_msg = "Sorry, I encountered an error. Please try again."
-        if not interaction.response.is_done():
-            await interaction.response.send_message(error_msg, ephemeral=True)
-        else:
-            await interaction.followup.send(error_msg, ephemeral=True)
 
 # Run the bot
 client.run(os.getenv('DISCORD_TOKEN')) 
