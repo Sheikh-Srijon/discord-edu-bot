@@ -132,23 +132,36 @@ async def on_ready():
     except Exception as e:
         print(f"Failed to sync commands: {e}")
 
-async def split_long_message(message):
-    """Split a long message into chunks of 1900 characters (leaving room for formatting)"""
-    if len(message) <= 1900:
+async def split_long_message(message, first_chunk_size=500, subsequent_chunk_size=1900):
+    """Split a long message into chunks with specified sizes for the first and subsequent chunks."""
+    if len(message) <= first_chunk_size:
         return [message]
     
     chunks = []
     current_chunk = ""
+    current_limit = first_chunk_size
     
     # Split by lines first to keep formatting
     for line in message.split('\n'):
-        if len(current_chunk) + len(line) + 1 <= 1900:
+        if len(current_chunk) + len(line) + 1 <= current_limit:
             current_chunk += line + '\n'
         else:
-            # If current chunk is not empty, add it to chunks
-            if current_chunk:
-                chunks.append(current_chunk)
-            current_chunk = line + '\n'
+            # If the line itself is longer than the current limit, split it
+            if len(line) > current_limit:
+                words = line.split(' ')
+                for word in words:
+                    if len(current_chunk) + len(word) + 1 <= current_limit:
+                        current_chunk += word + ' '
+                    else:
+                        chunks.append(current_chunk.strip())
+                        current_chunk = word + ' '
+                        current_limit = subsequent_chunk_size
+            else:
+                # If current chunk is not empty, add it to chunks
+                if current_chunk:
+                    chunks.append(current_chunk)
+                current_chunk = line + '\n'
+                current_limit = subsequent_chunk_size
     
     # Add the last chunk if it's not empty
     if current_chunk:
@@ -162,91 +175,56 @@ async def counselor(interaction: discord.Interaction, question: str):
         # Defer the response since AI might take time
         await interaction.response.defer(ephemeral=False)
         
-        # Create a thread for the question
-        thread = await interaction.channel.create_thread(
-            name=f"Question: {question[:50]}...",
-            type=discord.ChannelType.public_thread
-        )
-        
         # Get AI response
         response = await get_ai_response(question)
         
-        # Split response if it's too long
-        message_chunks = await split_long_message(response)
+        # Format initial response with user mention
+        initial_response = f"{interaction.user.mention} Here's your answer to question: {question}\n\n{response}"
         
-        # Send each chunk in the thread
-        for chunk in message_chunks:
-            await thread.send(chunk)
-            
-        await interaction.followup.send(f"Here's my answer to question: {question}")
+        # Split into chunks
+        chunks = await split_long_message(initial_response)
         
-    except discord.errors.Forbidden as e:
-        print(f"Permission error: {str(e)}")
-        if not interaction.response.is_done():
-            await interaction.response.send_message(
-                "Sorry, I don't have permission to do that. Please check my permissions.",
-                ephemeral=True
-            )
-        else:
-            await interaction.followup.send(
-                "Sorry, I don't have permission to do that. Please check my permissions.",
-                ephemeral=True
-            )
+        # Send first chunk (500 characters)
+        first_message = await interaction.followup.send(chunks[0])
+        
+        # Check if we have more chunks to send
+        if len(chunks) > 1:
+            # If in a thread, send remaining chunks directly
+            if isinstance(interaction.channel, discord.Thread):
+                for chunk in chunks[1:]:
+                    await interaction.channel.send(chunk)
+            # If in a guild channel, create a thread
+            elif interaction.guild:
+                try:
+                    thread = await interaction.channel.create_thread(
+                        name=f"Answer: {question[:50]}..." if len(question) > 50 else f"Answer: {question}",
+                        message=first_message,
+                        auto_archive_duration=60  # Archive after 1 hour
+                    )
+                    
+                    # Send remaining chunks in thread
+                    for chunk in chunks[1:]:
+                        await thread.send(chunk)
+                        
+                except Exception as thread_error:
+                    # Log the error for debugging
+                    print(f"Could not create thread: {str(thread_error)}")
+                    
+                    # Send remaining chunks as regular messages in the same channel
+                    for chunk in chunks[1:]:
+                        await interaction.followup.send(chunk)
+            else:
+                # If not in a guild, send remaining chunks as regular messages
+                for chunk in chunks[1:]:
+                    await interaction.followup.send(chunk)
+                
     except Exception as e:
         print(f"Error in counselor command: {str(e)}")
+        error_msg = "Sorry, I encountered an error. Please try again."
         if not interaction.response.is_done():
-            await interaction.response.send_message(
-                "Sorry, I encountered an error. Please try again.",
-                ephemeral=True
-            )
+            await interaction.response.send_message(error_msg, ephemeral=True)
         else:
-            await interaction.followup.send(
-                "Sorry, I encountered an error. Please try again.",
-                ephemeral=True
-            )
-
-@client.event
-async def on_message(message):
-    print("NEW VERSION: Running updated message handler!")  # Debug print
-    # Ignore messages from the bot itself
-    if message.author == client.user:
-        return
-
-    # Only respond if the bot is mentioned and message ends with question mark
-    is_question = message.content.strip().endswith('?')
-    bot_mentioned = client.user.mentioned_in(message)
-
-    if is_question and bot_mentioned:
-        try:
-            # Get AI response first
-            response = await get_ai_response(message.content)
-            
-            # Format initial response with user mention
-            initial_response = f"{message.author.mention}, here's your answer:\n\n{response}"
-            
-            # Send first message in channel (up to 1900 chars to be safe)
-            if len(initial_response) <= 1900:
-                await message.channel.send(initial_response)
-            else:
-                # Send first chunk and create thread from it
-                first_chunk = initial_response[:1900]
-                first_message = await message.channel.send(first_chunk)
-                
-                # Create thread only if we have more content
-                thread = await first_message.create_thread(
-                    name=f"Question: {message.content[:50]}...",
-                    type=discord.ChannelType.public_thread
-                )
-                
-                # Send remaining content in thread
-                remaining_content = initial_response[1900:]
-                chunks = await split_long_message(remaining_content)
-                for chunk in chunks:
-                    await thread.send(chunk)
-                
-        except Exception as e:
-            print(f"Error in message handler: {str(e)}")
-            await message.channel.send("Sorry, I encountered an error. Please try again.")
+            await interaction.followup.send(error_msg, ephemeral=True)
 
 # Run the bot
 client.run(os.getenv('DISCORD_TOKEN')) 
