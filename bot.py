@@ -207,6 +207,7 @@ async def counselor(interaction: discord.Interaction, question: str):
 
 @client.event
 async def on_message(message):
+    print("NEW VERSION: Running updated message handler!")  # Debug print
     # Ignore messages from the bot itself
     if message.author == client.user:
         return
@@ -217,19 +218,31 @@ async def on_message(message):
 
     if is_question and bot_mentioned:
         try:
-            # Create thread for the question
-            thread = await message.create_thread(
-                name=f"Question: {message.content[:50]}...",
-                type=discord.ChannelType.public_thread
-            )
-            
-            # Get and send AI response
+            # Get AI response first
             response = await get_ai_response(message.content)
             
-            # Split and send response in chunks if necessary
-            message_chunks = await split_long_message(response)
-            for chunk in message_chunks:
-                await thread.send(chunk)
+            # Format initial response with user mention
+            initial_response = f"{message.author.mention}, here's your answer:\n\n{response}"
+            
+            # Send first message in channel (up to 1900 chars to be safe)
+            if len(initial_response) <= 1900:
+                await message.channel.send(initial_response)
+            else:
+                # Send first chunk and create thread from it
+                first_chunk = initial_response[:1900]
+                first_message = await message.channel.send(first_chunk)
+                
+                # Create thread only if we have more content
+                thread = await first_message.create_thread(
+                    name=f"Question: {message.content[:50]}...",
+                    type=discord.ChannelType.public_thread
+                )
+                
+                # Send remaining content in thread
+                remaining_content = initial_response[1900:]
+                chunks = await split_long_message(remaining_content)
+                for chunk in chunks:
+                    await thread.send(chunk)
                 
         except Exception as e:
             print(f"Error in message handler: {str(e)}")
