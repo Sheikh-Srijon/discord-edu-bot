@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "/Users/srijon/Projects/discord-edu-bot/bot.py", line 1, in <module>
+    import discord
+ModuleNotFoundError: No module named 'discord'
+Traceback (most recent call last):
+  File "/Users/srijon/Projects/discord-edu-bot/bot.py", line 1, in <module>
+    import discord
+ModuleNotFoundError: No module named 'discord'
+Traceback (most recent call last):
+  File "/Users/srijon/Projects/discord-edu-bot/bot.py", line 1, in <module>
+    import discord
+ModuleNotFoundError: No module named 'discord'
+Traceback (most recent call last):
+  File "/Users/srijon/Projects/discord-edu-bot/bot.py", line 1, in <module>
+    import discord
+ModuleNotFoundError: No module named 'discord'
+[2025-03-05 16:12:36] [INFO    ] discord.client: logging in using static token
+[2025-03-05 16:12:39] [INFO    ] discord.gateway: Shard ID None has connected to Gateway (Session ID: d7518def1c13019756be5b136a0436ec).

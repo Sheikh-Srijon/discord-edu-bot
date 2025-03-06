@@ -1,0 +1,25 @@
+2025-03-05 16:09:20,146 INFO RPC interface 'supervisor' initialized
+2025-03-05 16:09:20,146 CRIT Server 'unix_http_server' running without any HTTP authentication checking
+2025-03-05 16:09:20,148 INFO daemonizing the supervisord process
+2025-03-05 16:09:20,149 INFO supervisord started with pid 17141
+2025-03-05 16:09:20,243 INFO spawned: 'bot' with pid 17144
+2025-03-05 16:09:20,286 WARN exited: bot (exit status 1; not expected)
+2025-03-05 16:09:21,292 INFO spawned: 'bot' with pid 17179
+2025-03-05 16:09:21,340 WARN exited: bot (exit status 1; not expected)
+2025-03-05 16:09:23,347 INFO spawned: 'bot' with pid 17219
+2025-03-05 16:09:23,384 WARN exited: bot (exit status 1; not expected)
+2025-03-05 16:09:26,391 INFO spawned: 'bot' with pid 17267
+2025-03-05 16:09:26,423 WARN exited: bot (exit status 1; not expected)
+2025-03-05 16:09:27,424 INFO gave up: bot entered FATAL state, too many start retries too quickly
+2025-03-05 16:12:36,075 INFO RPC interface 'supervisor' initialized
+2025-03-05 16:12:36,075 CRIT Server 'unix_http_server' running without any HTTP authentication checking
+2025-03-05 16:12:36,079 INFO daemonizing the supervisord process
+2025-03-05 16:12:36,081 INFO supervisord started with pid 20795
+2025-03-05 16:12:36,195 INFO spawned: 'bot' with pid 20797
+2025-03-05 16:12:36,794 DEBG 'bot' stderr output:
+[2025-03-05 16:12:36] [INFO    ] discord.client: logging in using static token
+
+2025-03-05 16:12:37,796 INFO success: bot entered RUNNING state, process has stayed up for > than 1 seconds (startsecs)
+2025-03-05 16:12:39,284 DEBG 'bot' stderr output:
+[2025-03-05 16:12:39] [INFO    ] discord.gateway: Shard ID None has connected to Gateway (Session ID: d7518def1c13019756be5b136a0436ec).
+

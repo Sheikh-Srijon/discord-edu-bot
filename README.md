@@ -47,3 +47,7 @@ This project is a Discord bot designed to assist students with their college app
 
 Run the bot using the following command:
 python bot.py
+
+# To SSH into aws easily
+
+ssh discord-edu-bot-ec2 since we setup the credentials in ~/.ssh/
